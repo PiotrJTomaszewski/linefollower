@@ -9,13 +9,16 @@
 #define MOTORL2 6
 #define MOTORR1 8
 #define MOTORR2 9
-const int Speed = 130;
-const int Speed_turn = 100;
+const int Speed = 180;
+const int Speed_turn = 150;
+const int Speed_turn_fast = 180;
 #define NUMBER_OF_SENSORS 5
 static const uint8_t sensor_pins[] = {A0, A1, A2, A3, A4};
 enum DIRECTION {FORWARD, BACKWARD};
 typedef unsigned char BYTE; // Unsigned char holds 1 byte of data
 int last_sensor;
+const int us_delay = 10;
+int iteration;
 
 /* speed - 0-255
    direction - FORWARD, BACKWARD
@@ -54,7 +57,7 @@ int get_minimum_sensor(int *values) {
   for (int i = 0; i < NUMBER_OF_SENSORS; ++i) {
     Serial.print(values[i], DEC);
     Serial.print(", ");
-    if (values[i] < minimum_val && values[i] < 300) {
+    if (values[i] < minimum_val && values[i] < 600) {
       minimum_val = values[i];
       minimum_sensor = i;
     }
@@ -83,6 +86,25 @@ int measure_distance() {
   return distance;
 }
 
+void avoid() {
+  left_motor(Speed_turn,FORWARD); right_motor(0,FORWARD);
+  delay(500);
+  left_motor(Speed,FORWARD); right_motor(Speed,FORWARD);
+  delay(300);
+  left_motor(0,FORWARD); right_motor(Speed_turn,FORWARD);
+  delay(500);
+  
+  left_motor(Speed,FORWARD); right_motor(Speed,FORWARD);
+  delay(600);
+  
+  left_motor(0,FORWARD); right_motor(Speed_turn,FORWARD);
+  delay(500);
+  left_motor(Speed,FORWARD); right_motor(Speed,FORWARD);
+  delay(300);
+  left_motor(Speed_turn,FORWARD); right_motor(0,FORWARD);
+  delay(500);
+}
+
 void test() {
   //digitalWrite(MOTORL2, LOW);
   //digitalWrite(MOTORL1, HIGH);
@@ -90,8 +112,9 @@ void test() {
   left_motor(255, FORWARD);
   right_motor(255, FORWARD);
 }
-
+bool was_overflow;
 void setup() { // Runs once on boot
+  
   // Setup ultrasonic sensor pins
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
@@ -114,25 +137,43 @@ void setup() { // Runs once on boot
   // Initialize serial connection
   Serial.begin(115200);
   last_sensor = 1;
+  iteration = 0;
+  was_overflow = false;
 }
 
+int distance=0;
+
 void loop() { // Infinite loop
-  int values[NUMBER_OF_SENSORS];
-  read_sensor_values(values);
-  int minimum_sensor = get_minimum_sensor(values);
- 
-  //test();
-  //Serial.println(measure_distance(), DEC);
-  //Serial.println("\n");
-  if(minimum_sensor == -1) {
-    minimum_sensor = last_sensor;
-  }
+  for (;;) {
+    int values[NUMBER_OF_SENSORS];
+    read_sensor_values(values);
+    int minimum_sensor = get_minimum_sensor(values);
+    if(iteration==us_delay) {
+          distance = measure_distance();
   
-  switch(minimum_sensor) {
-    case 0: case 1: left_motor(0,FORWARD); right_motor(Speed_turn,FORWARD);  break;
-    case 2: left_motor(Speed,FORWARD); right_motor(Speed,FORWARD); break;
-    case 3: case 4: left_motor(Speed_turn,FORWARD);  right_motor(0,FORWARD);  break;
+        iteration = 0;
+  
+        if (distance < 30 && distance > 10) {
+          avoid();
+          continue;
+        }
+    }
+    //test();
+    Serial.println(distance, DEC);
+    Serial.println("\n");
+    if(minimum_sensor == -1) {
+      minimum_sensor = last_sensor;
+    }
+    
+    switch(minimum_sensor) {
+      case 0: left_motor(0,FORWARD); right_motor(Speed_turn_fast,FORWARD); break;
+      case 1: left_motor(0,FORWARD); right_motor(Speed_turn,FORWARD);  break;
+      case 2: left_motor(Speed,FORWARD); right_motor(Speed,FORWARD); break;
+      case 3: left_motor(Speed_turn,FORWARD);  right_motor(0,FORWARD);  break;
+      case 4: left_motor(Speed_turn_fast,FORWARD); right_motor(0,FORWARD); break;
+    }
+    last_sensor = minimum_sensor;
+    //delay(100);
+    ++iteration;
   }
-  last_sensor = minimum_sensor;
-  //delay(100);
 }
