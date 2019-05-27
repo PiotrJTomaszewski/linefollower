@@ -1,4 +1,4 @@
-//TODO: ultrasonic
+//ultrasonic
 #define TRIGGER 12
 #define ECHO    13
 //ENABLE_L
