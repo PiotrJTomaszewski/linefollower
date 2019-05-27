@@ -9,9 +9,9 @@
 #define MOTORL2 6
 #define MOTORR1 8
 #define MOTORR2 9
-const int Speed = 180;
-const int Speed_turn = 150;
-const int Speed_turn_fast = 180;
+const int Speed = 110;
+const int Speed_turn = 90;
+const int Speed_turn_fast = 85;
 #define NUMBER_OF_SENSORS 5
 static const uint8_t sensor_pins[] = {A0, A1, A2, A3, A4};
 enum DIRECTION {FORWARD, BACKWARD};
@@ -48,6 +48,7 @@ int read_sensor_values(int *value_array) {
   for (BYTE i = 0; i < NUMBER_OF_SENSORS; ++i) {
     value_array[i] = analogRead(sensor_pins[i]);
   }
+  value_array[0] += 100;
   return 0; // Just for now
 }
 
@@ -144,20 +145,10 @@ void setup() { // Runs once on boot
 int distance=0;
 
 void loop() { // Infinite loop
-  for (;;) {
     int values[NUMBER_OF_SENSORS];
     read_sensor_values(values);
     int minimum_sensor = get_minimum_sensor(values);
-    if(iteration==us_delay) {
-          distance = measure_distance();
-  
-        iteration = 0;
-  
-        if (distance < 30 && distance > 10) {
-          avoid();
-          continue;
-        }
-    }
+
     //test();
     Serial.println(distance, DEC);
     Serial.println("\n");
@@ -174,6 +165,4 @@ void loop() { // Infinite loop
     }
     last_sensor = minimum_sensor;
     //delay(100);
-    ++iteration;
-  }
 }
