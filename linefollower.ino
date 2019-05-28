@@ -1,81 +1,81 @@
+#define DEBUG 0
 //ultrasonic
 #define TRIGGER 12
 #define ECHO    13
-//ENABLE_L
-#define ENABLE1 10
-//ENABLE_R
-#define ENABLE2 11
+#define ENABLE_LEFT 10
+#define ENABLE_RIGHT 11
 #define MOTORL1 7
 #define MOTORL2 6
 #define MOTORR1 8
 #define MOTORR2 9
-const float mult = 1.2;
-const float Speed = 110*mult;
-const float Speed_turn = 90*mult;
-const float Speed_turn_fast = 105*mult;
+
+#define THRESHOLD 400
+const float Kp;
+const float Mult = 1.2;
+const float Speed = 100*Mult;
+const float Speed_turn = 110*Mult;
+const float Speed_turn_fast = 120*Mult;
 #define NUMBER_OF_SENSORS 5
 static const uint8_t sensor_pins[] = {A0, A1, A2, A3, A4};
 enum DIRECTION {FORWARD, BACKWARD};
-typedef unsigned char BYTE; // Unsigned char holds 1 byte of data
-int last_sensor;
-const int us_delay = 10;
-int iteration;
 int distance;
 bool obstacle_detected;
 
-/* speed - 0-255
-   direction - FORWARD, BACKWARD
-*/
-void left_motor(BYTE speed, enum DIRECTION direction) {
-  switch (direction) {
-    case FORWARD:  digitalWrite(MOTORL2, LOW); digitalWrite(MOTORL1, HIGH); break;
-    case BACKWARD: digitalWrite(MOTORL1, LOW); digitalWrite(MOTORL2, HIGH); break;
-    default:       Serial.println("Error: wrong direction!");               break;
-  }
-  analogWrite(ENABLE1, speed);
-}
 
-void right_motor(BYTE speed, enum DIRECTION direction) {
-  switch (direction) {
-    case FORWARD:  digitalWrite(MOTORR1, LOW); digitalWrite(MOTORR2, HIGH); break;
-    case BACKWARD: digitalWrite(MOTORR2, LOW); digitalWrite(MOTORR1, HIGH); break;
-    default:       Serial.println("Error: wrong direction!");               break;
-  }
-  analogWrite(ENABLE2, speed);
-}
-
-
-/* Reads values of sensors
-*/
-int read_sensor_values(int *value_array) {
-  for (BYTE i = 0; i < NUMBER_OF_SENSORS; ++i) {
-    value_array[i] = analogRead(sensor_pins[i]);
-      Serial.print(value_array[i], DEC);
-      Serial.print(", ");
-  }
-    Serial.print('\n');
-
-  //value_array[0] += 100;
-  return 0; // Just for now
-}
-
-int get_minimum_sensor(int *values) {
-  int minimum_val = 2000;
-  int minimum_sensor;
-  int sensors[] = {0,4,1,3,2};
-  for (int i = 0; i < NUMBER_OF_SENSORS; ++i) {
-    if (values[sensors[i]] < minimum_val && values[sensors[i]] < 100) {
-      minimum_val = values[sensors[i]];
-      minimum_sensor = sensors[i];
-      return minimum_sensor;
+inline __attribute__((always_inline)) float calculate_error(int *value_array) {
+  /*
+    Calculates the current error value
+    value_array - a pointer to the array holding sensors values
+    return - calculated error value
+  */
+  static float last_error = 0;
+  float error = 0;
+  int detected_sensors = 0; // Number of sensors that've deteced a line
+  for (int i=0; i<NUMBER_OF_SENSORS; ++i) {
+    if (value_array[i] < THRESHOLD) {
+    error += i - 2.f; // Gives us values from [-2,2], 0 for the middle sensor
+    ++detected_sensors;
     }
   }
-  Serial.print('\n');
-  if (minimum_val == 2000) return -1; // Jeśli nie znaleziono min, to zwraca -1
-  else return minimum_sensor;
+  if (detected_sensors > 0) {
+    error = error/static_cast<float>(detected_sensors);
+    last_error = error;
+  }
+  else {
+    error = last_error;
+  }
+  return error;
 }
 
-int measure_distance() {
+inline __attribute__((always_inline)) void ride(float error) {
+  /*
+  Moves the motors according to the PD controller
+  */
+  float u; // Controller output
+  u = error*Kp;
+  float left_speed;
+  float right_speed;
+  if (error < 0) {
+    right_speed = Speed-u;
+    left_speed = 0;
+    if (right_speed < 0)   right_speed = 0;
+    if (right_speed > 255) right_speed = 255;
+  }
+  else if (error > 0) {
+    left_speed  = Speed+u;
+    right_speed = 0;
+    if (left_speed < 0)     left_speed = 0;
+    if (left_speed > 255)   left_speed = 255;
+  }
+  else {
+    left_speed = Speed;
+    right_speed = Speed;
+  }
+  analogWrite(ENABLE_LEFT,  left_speed);
+  analogWrite(ENABLE_RIGHT, right_speed);
+}
+
+inline __attribute__((always_inline)) int measure_distance() {
   // https://howtomechatronics.com/tutorials/arduino/ultrasonic-sensor-hc-sr04/
   long duration;
   int distance;
@@ -94,93 +94,90 @@ int measure_distance() {
   return distance;
 }
 
-void avoid() {
-  left_motor(150,FORWARD); right_motor(0,FORWARD);
+inline __attribute__((always_inline)) void avoid() {
+  analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 0);
   delay(500);
-  left_motor(150,FORWARD); right_motor(150,FORWARD);
+  analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 150);
   delay(400);
-  left_motor(0,FORWARD); right_motor(150,FORWARD);
+  analogWrite(ENABLE_LEFT, 0); analogWrite(ENABLE_RIGHT, 150);
   delay(600);
 
-  left_motor(150,FORWARD); right_motor(150,FORWARD);
+  analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 150);
   delay(400);
 
-  left_motor(0,FORWARD); right_motor(150,FORWARD);
+  analogWrite(ENABLE_LEFT, 0); analogWrite(ENABLE_RIGHT, 150);
   delay(500);
-  left_motor(150,FORWARD); right_motor(150,FORWARD);
+  analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 150);
   delay(500);
-  left_motor(150, FORWARD); right_motor(0,FORWARD);
+  analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 0);
   delay(300);
-  
- // left_motor(0,FORWARD); right_motor(0,FORWARD);
 }
 
-void test() {
-  //digitalWrite(MOTORL2, LOW);
-  //digitalWrite(MOTORL1, HIGH);
-  //analogWrite(ENABLE1, 150);
-  left_motor(255, FORWARD);
-  right_motor(255, FORWARD);
+#if DEBUG==1
+inline __attribute__((always_inline)) void serial_debug(int *sensor_values, int distance) {
+  /*
+  Debug function. Sends all useful data to serial port.
+  */
+  for(int i=0; i<NUMBER_OF_SENSORS; ++i) {
+    Serial.print(sensor_values[i], DEC);
+    Serial.print(',');
+  }
+  Serial.print(distance, DEC);
+  Serial.print('\n');
+  Serial.println(millis(),DEC);
 }
+#endif
+
 void setup() { // Runs once on boot
   
   // Setup ultrasonic sensor pins
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
   // Setup motor pins
-  pinMode(ENABLE1, OUTPUT);
-  pinMode(ENABLE2, OUTPUT);
+  pinMode(ENABLE_LEFT, OUTPUT);
+  pinMode(ENABLE_RIGHT, OUTPUT);
   pinMode(MOTORL1, OUTPUT);
   pinMode(MOTORL2, OUTPUT);
   pinMode(MOTORR1, OUTPUT);
   pinMode(MOTORR2, OUTPUT);
-  // Turn off the motors
-  digitalWrite(MOTORL1, LOW);
+  // Setup direction
   digitalWrite(MOTORL2, LOW);
+  digitalWrite(MOTORL1, HIGH);
   digitalWrite(MOTORR1, LOW);
-  digitalWrite(MOTORR2, LOW);
+  digitalWrite(MOTORR2, HIGH);
   // Setup sensor pins
-  for (BYTE i = 0; i < NUMBER_OF_SENSORS; ++i) {
+  for (byte i = 0; i < NUMBER_OF_SENSORS; ++i) {
     pinMode(sensor_pins[i], INPUT);
   }
+  #if DEBUG==1
   // Initialize serial connection
   Serial.begin(115200);
-  last_sensor = 1;
-  //avoid();
-  //delay(1000000);
+  #endif
   obstacle_detected = false;
 }
 
 
 void loop() { // Infinite loop
-    int values[NUMBER_OF_SENSORS];
-    read_sensor_values(values);
-    int minimum_sensor = get_minimum_sensor(values);
-
-    //test();
-    if (!obstacle_detected) {
-      distance = measure_distance();
-    }
-    //Serial.println(distance, DEC);
-    Serial.println("\n");
-    if(minimum_sensor == -1) {
-      minimum_sensor = last_sensor;
-    }
-    if (distance < 20 && distance > 7) {
-      avoid();
-      obstacle_detected = true;
-      distance = 2000;
-      minimum_sensor = 2;
-    }
-    else {  
-      switch(minimum_sensor) {
-        case 0: left_motor(0,FORWARD); right_motor(Speed_turn_fast,FORWARD); break;
-        case 1: left_motor(0,FORWARD); right_motor(Speed_turn,FORWARD);  break;
-        case 2: left_motor(Speed,FORWARD); right_motor(Speed,FORWARD); break;
-        case 3: left_motor(Speed_turn,FORWARD);  right_motor(0,FORWARD);  break;
-        case 4: left_motor(Speed_turn_fast,FORWARD); right_motor(0,FORWARD); break;
-      }
-    }
-    last_sensor = minimum_sensor;
-    delay(10);
+  int values[NUMBER_OF_SENSORS];
+  float error;
+  // Read sensor values
+  for (byte i = 0; i < NUMBER_OF_SENSORS; ++i) {
+    values[i] = analogRead(sensor_pins[i]);
+  }
+  // Measure distance
+  if (!obstacle_detected) {
+    distance = measure_distance();
+  }
+  if (distance < 20 && distance > 7) {
+    avoid();
+    obstacle_detected = true;
+    distance = 2000;
+  }
+  else {  
+    error = calculate_error(values);
+    ride(error);
+  }
+  #if DEBUG==1
+  serial_debug(values, distance);
+  #endif
 }
