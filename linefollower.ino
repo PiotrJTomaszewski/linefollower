@@ -1,4 +1,4 @@
-#define DEBUG 0
+#define DEBUG 0C
 //ultrasonic
 #define TRIGGER 12
 #define ECHO    13
@@ -9,9 +9,9 @@
 #define MOTORR1 8
 #define MOTORR2 9
 
-#define THRESHOLD 400
+#define THRESHOLD 500
 const float Kp;
-const float Mult = 1.2;
+const float Mult = 1.1;
 const float Speed = 100*Mult;
 const float Speed_turn = 110*Mult;
 const float Speed_turn_fast = 120*Mult;
@@ -103,12 +103,12 @@ inline __attribute__((always_inline)) void avoid() {
   delay(600);
 
   analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 150);
-  delay(400);
+  delay(300);
 
   analogWrite(ENABLE_LEFT, 0); analogWrite(ENABLE_RIGHT, 150);
   delay(500);
   analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 150);
-  delay(500);
+  delay(315);
   analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 0);
   delay(300);
 }
@@ -160,11 +160,6 @@ void setup() { // Runs once on boot
 void loop() { // Infinite loop
   int values[NUMBER_OF_SENSORS];
   float error;
-  // Read sensor values
-  for (byte i = 0; i < NUMBER_OF_SENSORS; ++i) {
-    values[i] = analogRead(sensor_pins[i]);
-  }
-  // Measure distance
   if (!obstacle_detected) {
     distance = measure_distance();
   }
@@ -173,10 +168,13 @@ void loop() { // Infinite loop
     obstacle_detected = true;
     distance = 2000;
   }
-  else {  
-    error = calculate_error(values);
-    ride(error);
+  // Read sensor values
+  for (byte i = 0; i < NUMBER_OF_SENSORS; ++i) {
+    values[i] = analogRead(sensor_pins[i]);
   }
+  // Measure distance  
+  error = calculate_error(values);
+  ride(error);
   #if DEBUG==1
   serial_debug(values, distance);
   #endif
