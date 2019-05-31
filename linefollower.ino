@@ -1,4 +1,4 @@
-#define DEBUG 0C
+#define DEBUG 0
 //ultrasonic
 #define TRIGGER 12
 #define ECHO    13
@@ -10,9 +10,9 @@
 #define MOTORR2 9
 
 #define THRESHOLD 500
-const float Kp;
-const float Mult = 1.1;
-const float Speed = 100*Mult;
+const float Kp=10;
+const float Mult = 1.0;
+const float Speed = 95*Mult;
 const float Speed_turn = 110*Mult;
 const float Speed_turn_fast = 120*Mult;
 #define NUMBER_OF_SENSORS 5
@@ -98,7 +98,7 @@ inline __attribute__((always_inline)) void avoid() {
   analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 0);
   delay(500);
   analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 150);
-  delay(400);
+  delay(415);
   analogWrite(ENABLE_LEFT, 0); analogWrite(ENABLE_RIGHT, 150);
   delay(600);
 
@@ -108,7 +108,7 @@ inline __attribute__((always_inline)) void avoid() {
   analogWrite(ENABLE_LEFT, 0); analogWrite(ENABLE_RIGHT, 150);
   delay(500);
   analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 150);
-  delay(315);
+  delay(275);
   analogWrite(ENABLE_LEFT, 150); analogWrite(ENABLE_RIGHT, 0);
   delay(300);
 }
